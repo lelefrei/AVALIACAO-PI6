@@ -1,0 +1,368 @@
+
+
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Avaliação Anônima - Projeto Integrador</title>
+
+<style>
+* { box-sizing: border-box; }
+
+body {
+    font-family: Arial, sans-serif;
+    background: #eef2f7;
+    padding: 20px;
+}
+
+.container {
+    background: #fff;
+    padding: 24px;
+    border-radius: 12px;
+    max-width: 700px;
+    margin: 20px auto;
+    box-shadow: 0 5px 15px rgba(0,0,0,.1);
+}
+
+h2 { text-align: center; }
+
+.box {
+    margin: 14px 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+}
+
+input {
+    width: 100px;
+    padding: 9px;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+}
+
+button {
+    width: 100%;
+    padding: 13px;
+    background: #2563eb;
+    color: white;
+    border: 0;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 16px;
+}
+
+button:disabled {
+    opacity: .6;
+    cursor: not-allowed;
+}
+
+.result {
+    margin-top: 20px;
+    white-space: pre-line;
+    font-weight: bold;
+    line-height: 1.6;
+}
+
+.info {
+    font-size: 13px;
+    color: #475569;
+    margin-top: 12px;
+}
+</style>
+
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+</head>
+
+<body>
+
+<div class="container">
+
+<h2>Avaliação Anônima - Projeto Integrador</h2>
+
+<p>
+Preencha uma nota de 0 a 5 para cada integrante.
+O resultado será liberado quando as 8 avaliações forem enviadas.
+</p>
+
+<form id="form">
+
+<div class="box">Leticia:
+<input type="number" min="0" max="5" step="0.1" required>
+</div>
+
+<div class="box">Camila:
+<input type="number" min="0" max="5" step="0.1" required>
+</div>
+
+<div class="box">André:
+<input type="number" min="0" max="5" step="0.1" required>
+</div>
+
+<div class="box">Kayky:
+<input type="number" min="0" max="5" step="0.1" required>
+</div>
+
+
+<div class="box">Everton:
+<input type="number" min="0" max="5" step="0.1" required>
+</div>
+
+<div class="box">Helder:
+<input type="number" min="0" max="5" step="0.1" required>
+</div>
+
+<div class="box">Veronica:
+<input type="number" min="0" max="5" step="0.1" required>
+</div>
+
+<button id="btnEnviar" type="submit">
+Enviar Avaliação
+</button>
+
+</form>
+
+<div class="result" id="resultado">
+Conectando ao Firebase...
+</div>
+
+<div class="info">
+O resultado aparece automaticamente após 7 avaliações válidas.
+</div>
+
+</div>
+
+<script>
+
+"use strict";
+
+// CONFIGURAÇÃO FIREBASE
+const firebaseConfig = {
+    apiKey: "AIzaSyB09c0-h7eMu_IxtG0hw_YeIpbICyQD1pw",
+    authDomain: "avaliacao-pi.firebaseapp.com",
+    projectId: "avaliacao-pi",
+    storageBucket: "avaliacao-pi.firebasestorage.app",
+    messagingSenderId: "652153776356",
+    appId: "1:652153776356:web:2db787c5c7c0dea224a4f1"
+};
+
+const nomes = [
+    "Leticia",
+    "Camila",
+    "André",
+    "Kayky",
+    "Everton",
+    "Helder",
+    "Veronica"
+];
+
+const TOTAL_AVALIADORES = 7;
+
+const form = document.getElementById("form");
+const botao = document.getElementById("btnEnviar");
+const resultado = document.getElementById("resultado");
+
+let db = null;
+let enviando = false;
+
+function mensagem(texto, erro = false) {
+    resultado.textContent = texto;
+    resultado.style.color = erro ? "#b91c1c" : "#166534";
+}
+
+// ACOMPANHAR AVALIAÇÕES EM TEMPO REAL
+function acompanharAvaliacoes() {
+
+    db.collection("avaliacoes").onSnapshot(snapshot => {
+
+        const validas = [];
+
+        snapshot.forEach(doc => {
+
+            const notas = doc.data().notas;
+
+            if (
+                Array.isArray(notas) &&
+                notas.length === 7 &&
+                notas.every(n =>
+                    Number.isFinite(n) && n >= 0 && n <= 5
+                )
+            ) {
+                validas.push(notas);
+            }
+
+        });
+
+        const quantidade = validas.length;
+
+        if (quantidade < TOTAL_AVALIADORES) {
+
+            mensagem(
+                "Aguardando avaliações: " +
+                quantidade + " de " +
+                TOTAL_AVALIADORES +
+                " recebidas. Faltam " +
+                (TOTAL_AVALIADORES - quantidade) + "."
+            );
+
+            return;
+        }
+
+        // SOMAR AS NOTAS
+        const totais = Array(7).fill(0);
+
+        validas.slice(0, TOTAL_AVALIADORES).forEach(notas => {
+
+            notas.forEach((nota, indice) => {
+
+                totais[indice] += nota;
+
+            });
+
+        });
+
+        // CALCULAR MÉDIAS
+        let texto = "RESULTADO FINAL — 7 AVALIAÇÕES\n\n";
+
+        nomes.forEach((nome, indice) => {
+
+            const media = totais[indice] / TOTAL_AVALIADORES;
+
+            texto += nome + ": " +
+                media.toFixed(2) + " / 5,00\n";
+
+        });
+
+        mensagem(texto);
+
+    }, erro => {
+
+        console.error(erro);
+
+        mensagem(
+            "Erro ao consultar avaliações: " + erro.message,
+            true
+        );
+
+    });
+
+}
+
+// ENVIAR AVALIAÇÃO
+form.addEventListener("submit", async event => {
+
+    event.preventDefault();
+
+    if (enviando) return;
+
+    const campos = [
+        ...form.querySelectorAll('input[type="number"]')
+    ];
+
+    const notas = campos.map(campo =>
+        campo.value.trim() === ""
+            ? NaN
+            : Number(campo.value)
+    );
+
+    if (notas.some(n =>
+        !Number.isFinite(n) || n < 0 || n > 5
+    )) {
+
+        mensagem(
+            "Preencha todas as 8 notas com valores entre 0 e 5.",
+            true
+        );
+
+        return;
+    }
+
+    if (!db) {
+
+        mensagem(
+            "O Firebase ainda não conectou. Atualize a página.",
+            true
+        );
+
+        return;
+    }
+
+    enviando = true;
+    botao.disabled = true;
+    botao.textContent = "Enviando...";
+
+    try {
+
+        await db.collection("avaliacoes").add({
+
+            notas: notas,
+
+            criadoEm: firebase.firestore.FieldValue.serverTimestamp()
+
+        });
+
+        form.reset();
+
+        mensagem(
+            "Sua avaliação foi enviada! Aguardando as demais avaliações..."
+        );
+
+    } catch (erro) {
+
+        console.error("Erro ao salvar:", erro);
+
+        mensagem(
+            erro.code === "permission-denied"
+                ? "O Firestore negou o envio. Confira as regras."
+                : "Não foi possível enviar: " + erro.message,
+            true
+        );
+
+    } finally {
+
+        enviando = false;
+        botao.disabled = false;
+        botao.textContent = "Enviar Avaliação";
+
+    }
+
+});
+
+// INICIALIZAR FIREBASE
+try {
+
+    if (
+        !window.firebase ||
+        !firebase.initializeApp ||
+        !firebase.firestore
+    ) {
+        throw new Error("Bibliotecas Firebase não carregaram.");
+    }
+
+    const app = firebase.apps.length
+        ? firebase.app()
+        : firebase.initializeApp(firebaseConfig);
+
+    db = firebase.firestore(app);
+
+    mensagem("Conectado. Consultando avaliações...");
+
+    acompanharAvaliacoes();
+
+} catch (erro) {
+
+    console.error(erro);
+
+    mensagem(
+        "Erro ao conectar com Firebase: " + erro.message,
+        true
+    );
+
+}
+
+</script>
+
+</body>
+</html>
